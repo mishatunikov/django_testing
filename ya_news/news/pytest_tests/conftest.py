@@ -1,108 +1,113 @@
 from datetime import timedelta
 
 import pytest
+from django.test import Client
 from django.urls import reverse
 from django.utils import timezone
+
 from news.models import Comment, News
 from yanews.settings import NEWS_COUNT_ON_HOME_PAGE
 
 
+@pytest.fixture(autouse=True)
+def enable_db_access_for_all_tests(db):
+    pass
+
+
 @pytest.fixture
 def author(django_user_model):
-    author = django_user_model.objects.create(username="author")
-    return author
+    return django_user_model.objects.create(username='author')
 
 
 @pytest.fixture
-def author_client(client, author):
-    client.force_login(author)
-    return client
+def author_client(author):
+    author_client = Client()
+    author_client.force_login(author)
+    return author_client
 
 
 @pytest.fixture
 def not_author(django_user_model):
-    return django_user_model.objects.create(username="reader")
+    return django_user_model.objects.create(username='reader')
 
 
 @pytest.fixture
-def not_author_client(client, not_author):
-    client.force_login(not_author)
-    return client
+def not_author_client(not_author):
+    not_author_client = Client()
+    not_author_client.force_login(not_author)
+    return not_author_client
 
 
 @pytest.fixture
 def news(author):
-    news = News.objects.create(title="title", text="text")
-    return news
-
-
-@pytest.fixture
-def id_news_for_args(news):
-    return (news.id,)
+    return News.objects.create(title='title', text='text')
 
 
 @pytest.fixture
 def comment(author, news):
-    comment = Comment.objects.create(text="comment", author=author, news=news)
-    return comment
+    return Comment.objects.create(text='comment', author=author, news=news)
 
 
 @pytest.fixture
-def id_comment_for_args(comment):
-    return (comment.id,)
-
-
-@pytest.fixture
-def count_news_on_page():
-    return NEWS_COUNT_ON_HOME_PAGE
-
-
-@pytest.fixture
-def create_news(author, count_news_on_page):
+def create_news(author):
     today = timezone.now().date()
-    news_list = [
+
+    News.objects.bulk_create(
         News(
-            title=f"title {index}",
-            text=f"text {index}",
+            title=f'title {index}',
+            text=f'text {index}',
             date=today + timedelta(days=index),
         )
-        for index in range(count_news_on_page + 1)
-    ]
-    News.objects.bulk_create(news_list)
+        for index in range(NEWS_COUNT_ON_HOME_PAGE + 1)
+    )
 
 
 @pytest.fixture
 def create_comments(author, news):
-    comment_on_page = NEWS_COUNT_ON_HOME_PAGE
+    comment_on_page = 5
     today = timezone.now().date()
     for index in range(comment_on_page):
-        comment = Comment(text="comment", author=author, news=news)
+        comment = Comment(text='comment', author=author, news=news)
         comment.created = today + timedelta(days=index)
         comment.save()
 
 
 @pytest.fixture
-def home_page_url():
-    url = reverse("news:home")
-    return url
-
-
-@pytest.fixture
-def detail_news_url(id_news_for_args):
-    url = reverse("news:detail", args=id_news_for_args)
-    return url
-
-
-@pytest.fixture
 def form_data():
-    return {"text": "new_text"}
+    return {'text': 'new_text'}
+
+
+# urls.
+@pytest.fixture
+def home_page_url():
+    return reverse('news:home')
 
 
 @pytest.fixture
-def comment_edit_url(id_comment_for_args):
-    return reverse("news:edit", args=id_comment_for_args)
+def detail_news_url(news):
+    return reverse('news:detail', args=(news.id,))
 
 
 @pytest.fixture
-def comment_delete_url(id_comment_for_args):
-    return reverse("news:delete", args=id_comment_for_args)
+def comment_edit_url(comment):
+    return reverse('news:edit', args=(comment.id,))
+
+
+@pytest.fixture
+def comment_delete_url(comment):
+    return reverse('news:delete', args=(comment.id,))
+
+
+@pytest.fixture
+def login_url():
+    return reverse('users:login')
+
+
+@pytest.fixture
+def logout_url():
+    return reverse('users:logout')
+
+
+@pytest.fixture
+def signup_url():
+    return reverse('users:signup')
